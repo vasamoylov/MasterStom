@@ -4,7 +4,7 @@ from pydantic_extra_types.phone_numbers import PhoneNumber
 from typing import List
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, Session
-from models import Base, Clients
+from models import Base, Clients, Subscriptions, Services
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -22,7 +22,26 @@ class ClientCreate(BaseModel):
     email: EmailStr
 
 
+class SubscriptionCreate(BaseModel):
+    name: str
+    price: int
+
+
+class ServiceCreate(BaseModel):
+    id_subscription: int
+    description: str
+    price: int
+
+
 class ClientResponse(ClientCreate):
+    id: int
+
+
+class SubscriptionResponse(SubscriptionCreate):
+    id: int
+
+
+class ServiceResponse(ServiceCreate):
     id: int
 
 
@@ -82,3 +101,21 @@ async def delete_contact(client_id: int, db: Session = Depends(get_db)):
     db.delete(db_client)
     db.commit()
     return {"message": "Contact deleted"}
+
+
+@app.post('/subscriptions/', response_model=SubscriptionResponse)
+async def create_subscription(subscription: SubscriptionCreate, db: Session = Depends(get_db)):
+    db_subscription = Subscriptions(**subscription.dict())
+    db.add(db_subscription)
+    db.commit()
+    db.refresh(db_subscription)
+    return db_subscription
+
+
+@app.post('/subscriptions/services/', response_model=ServiceResponse)
+async def create_service(service: ServiceCreate, db: Session = Depends(get_db)):
+    db_service = Services(**service.dict())
+    db.add(db_service)
+    db.commit()
+    db.refresh(db_service)
+    return db_service
