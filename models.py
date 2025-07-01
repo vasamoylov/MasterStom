@@ -90,7 +90,7 @@ class ServicesAvailability(Base):
     '''Таблица с информацией о количестве доступных улуг для клиента в рамках подписки'''
 
     __table_args__ = (
-        CheckConstraint('quantity >= 0', name='check_quantitye'),
+        CheckConstraint('quantity >= 0', name='check_quantity'),
     )
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey('clients.id'))

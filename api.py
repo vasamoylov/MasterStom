@@ -286,13 +286,18 @@ async def delete_client_subscription(client_subscription_id: int, db: Session = 
     return {'message': 'Client subscription deleted'}
 
 
-@app.put('/clients/{id}/subscription/services', response_model=ClientResponse)
+@app.put('/clients/{id}/subscription/services/')
 async def use_availability_services(client_id: int, service_id: int, quantity: int, db: Session = Depends(get_db)):
     db_availability_quantity = (
         db.query(ServicesAvailability.quantity).filter_by(client_id=client_id, service_id=service_id)).one()
+    print(db_availability_quantity)
+    print(quantity)
     if not db_availability_quantity:
         raise HTTPException(status_code=404, detail='This service is not included in the subscription')
+    print('if not db_availability_quantity')
+    print(db_availability_quantity.quantity, quantity)
     db_availability_quantity.quantity = db_availability_quantity.quantity - quantity
+    print(db_availability_quantity.quantity, quantity)
     db.commit()
     return {'message': 'The service was successfully used'}
 
@@ -304,10 +309,10 @@ async def use_availability_services(client_id: int, service_id: int, quantity: i
 # my_table = metadata.tables['alembic_version']
 # my_table.drop(engine)
 
-'''
+
 session = Session(bind=engine)
 data = session.query(ServicesAvailability.quantity).filter_by(client_id=1, service_id=2).one()
 
-print(type(data.quantity))'''
+print(data.quantity)
 
 
