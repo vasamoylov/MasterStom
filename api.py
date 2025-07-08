@@ -113,6 +113,11 @@ async def update_client(client_id: int, client: ClientCreate, db: Session = Depe
     if not db_client:
         raise HTTPException(status_code=404, detail='Client not found')
     db_client.name = client.name
+    db_client.surname = client.surname
+    db_client.patronymic = client.patronymic
+    db_client.age = client.age
+    db_client.phone = client.phone
+    db_client.email = client.email
     db.commit()
     db.refresh(db_client)
     return db_client
@@ -126,6 +131,12 @@ async def delete_client(client_id: int, db: Session = Depends(get_db)):
     db.delete(db_client)
     db.commit()
     return {'message': 'Client deleted'}
+
+
+@app.get('/clients/services/')
+async def get_price_list(db: Session = Depends(get_db)):
+    price_list = db.query(Services.description, Services.price).distinct().all()
+    return price_list
 
 
 @app.post('/subscriptions/', response_model=SubscriptionResponse)
@@ -221,8 +232,11 @@ async def get_service(service_id, service: ServiceCreate, db: Session = Depends(
     db_service = db.get(Services, service_id)
     if not db_service:
         raise HTTPException(status_code=404, detail='Service not found')
+    db_service.category_id = service.category_id
     db_service.description = service.description
     db_service.price = service.price
+    db_service.subscription_id = service.subscription_id
+    db_service.quantity = service.quantity
     db.commit()
     db.refresh(db_service)
     return db_service
@@ -311,8 +325,10 @@ async def use_availability_services(client_id: int, service_id: int, quantity: i
 
 
 session = Session(bind=engine)
-data = session.query(ServicesAvailability.quantity).filter_by(client_id=1, service_id=2).one()
+data = session.query(ServicesAvailability.service_id, ServicesAvailability.quantity).filter_by(client_id=1).all()
+new_data = session.query(Services.id, Services.quantity).filter_by(subscription_id=2).all()
 
-print(data.quantity)
+print(data)
+print(new_data)
 
 
