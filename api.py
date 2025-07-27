@@ -4,7 +4,8 @@ from pydantic_extra_types.phone_numbers import PhoneNumber
 from typing import List
 from sqlalchemy import create_engine, insert, Column, Integer, String, MetaData
 from sqlalchemy.orm import sessionmaker, Session
-from models import Base, Clients, Subscriptions, Services, ClientSubscriptions, ServicesAvailability, Categories
+from models import (Base, Clients, Subscriptions, Services, ClientSubscriptions, ServicesAvailability, Categories,
+                    SubscriptionServices, Offers, Contacts)
 from datetime import date
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -36,6 +37,10 @@ class ServiceCreate(BaseModel):
     category_id: int
     description: str
     price: int
+
+
+class SubscriptionServicesCreate(BaseModel):
+    service_id: int
     subscription_id: int
     quantity: int
 
@@ -45,7 +50,16 @@ class ClientSubscriptionCreate(BaseModel):
     subscription_id: int
     start_date: date
     end_date: date
-    payment_status: str
+
+
+class OfferCreate(BaseModel):
+    name: str
+    url: str
+
+
+class ContactCreate(BaseModel):
+    name: str
+    url: str
 
 
 class ClientResponse(ClientCreate):
@@ -61,6 +75,18 @@ class CategoryResponse(CategoryCreate):
 
 
 class ServiceResponse(ServiceCreate):
+    id: int
+
+
+class SubscriptionServicesResponse(ServiceCreate):
+    id: int
+
+
+class OfferCreateResponse(OfferCreate):
+    id: int
+
+
+class ContactCreateResponse(ContactCreate):
     id: int
 
 
@@ -113,6 +139,11 @@ async def update_client(client_id: int, client: ClientCreate, db: Session = Depe
     if not db_client:
         raise HTTPException(status_code=404, detail='Client not found')
     db_client.name = client.name
+    db_client.surname = client.surname
+    db_client.patronymic = client.patronymic
+    db_client.age = client.age
+    db_client.phone = client.phone
+    db_client.email = client.email
     db.commit()
     db.refresh(db_client)
     return db_client
@@ -181,7 +212,7 @@ async def get_categories(db: Session = Depends(get_db)):
 
 
 @app.put('/categories/{id}', response_model=CategoryResponse)
-async def get_category(category_id, category: CategoryCreate, db: Session = Depends(get_db)):
+async def update_category(category_id, category: CategoryCreate, db: Session = Depends(get_db)):
     db_category = db.get(Categories, category_id)
     if not db_category:
         raise HTTPException(status_code=404, detail='Category not found')
@@ -195,7 +226,7 @@ async def get_category(category_id, category: CategoryCreate, db: Session = Depe
 async def delete_category(category_id: int, db: Session = Depends(get_db)):
     db_category = db.get(Categories, category_id)
     if not db_category:
-        raise HTTPException(status_code=404, detail='Categoryn not found')
+        raise HTTPException(status_code=404, detail='Category not found')
     db.delete(db_category)
     db.commit()
     return {'message': 'Category deleted'}
@@ -217,10 +248,11 @@ async def get_services(db: Session = Depends(get_db)):
 
 
 @app.put('/services/{id}', response_model=ServiceResponse)
-async def get_service(service_id, service: ServiceCreate, db: Session = Depends(get_db)):
+async def update_service(service_id, service: ServiceCreate, db: Session = Depends(get_db)):
     db_service = db.get(Services, service_id)
     if not db_service:
         raise HTTPException(status_code=404, detail='Service not found')
+    db_service.category_id = service.category_id
     db_service.description = service.description
     db_service.price = service.price
     db.commit()
@@ -238,16 +270,59 @@ async def delete_service(service_id: int, db: Session = Depends(get_db)):
     return {'message': 'Service deleted'}
 
 
+@app.post('/subscription/services/', response_model=SubscriptionServicesResponse)
+async def create_subscription_service(subscription_service: SubscriptionServicesCreate, db: Session = Depends(get_db)):
+    db_subscription_service = SubscriptionServices(**subscription_service.dict())
+    db.add(db_subscription_service)
+    db.commit()
+    db.refresh(db_subscription_service)
+    return db_subscription_service
+
+
+@app.get('/subscription/services/')
+async def get_subscription_services(db: Session = Depends(get_db)):
+    subscription_services = db.query(SubscriptionServices).all()
+    return subscription_services
+
+
+@app.put('/subscription/services/{id}', response_model=SubscriptionServicesResponse)
+async def update_subscription_service(
+        subscription_service_id, subscription_service: SubscriptionServicesCreate, db: Session = Depends(get_db)):
+    db_subscription_service = db.get(SubscriptionServices, subscription_service_id)
+    if not db_subscription_service:
+        raise HTTPException(status_code=404, detail='Service not found')
+    db_subscription_service.service_id = subscription_service.service_id
+    db_subscription_service.subscription_id = subscription_service.subscription_id
+    db_subscription_service.quantity = subscription_service.quantity
+    db.commit()
+    db.refresh(db_subscription_service)
+    return db_subscription_service
+
+
+@app.delete('/subscription/services/{id}')
+async def delete_subscription_service(subscription_service_id: int, db: Session = Depends(get_db)):
+    db_subscription_service = db.get(SubscriptionServices, subscription_service_id)
+    if not db_subscription_service:
+        raise HTTPException(status_code=404, detail='Service not found')
+    db.delete(db_subscription_service)
+    db.commit()
+    return {'message': 'Service deleted'}
+
+
 @app.post('/clients/{id}/subscription/')
 async def create_client_subscription(client_subscription: ClientSubscriptionCreate, db: Session = Depends(get_db)):
     db_client_subscription = ClientSubscriptions(**client_subscription.dict())
     db.add(db_client_subscription)
     service_availability = (
         db.query(
-            Services.id, Services.quantity).filter_by(subscription_id=db_client_subscription.subscription_id).all()
+            SubscriptionServices.service_id, SubscriptionServices.quantity).filter_by(
+            subscription_id=db_client_subscription.subscription_id).all()
     )
     for service in service_availability:
-        db_service = ServicesAvailability(db_client_subscription.client_id, service.id, service.quantity)
+        db_service = ServicesAvailability(
+            client_id=db_client_subscription.client_id,
+            service_id=service.id,
+            quantity=service.quantity)
         db.add(db_service)
     db.commit()
     db.refresh(db_client_subscription)
@@ -288,18 +363,78 @@ async def delete_client_subscription(client_subscription_id: int, db: Session = 
 
 @app.put('/clients/{id}/subscription/services/')
 async def use_availability_services(client_id: int, service_id: int, quantity: int, db: Session = Depends(get_db)):
-    db_availability_quantity = (
-        db.query(ServicesAvailability.quantity).filter_by(client_id=client_id, service_id=service_id)).one()
-    print(db_availability_quantity)
-    print(quantity)
-    if not db_availability_quantity:
+    db_availability = (
+        db.query(ServicesAvailability).filter_by(client_id=client_id, service_id=service_id)).first()
+    if not db_availability:
         raise HTTPException(status_code=404, detail='This service is not included in the subscription')
-    print('if not db_availability_quantity')
-    print(db_availability_quantity.quantity, quantity)
-    db_availability_quantity.quantity = db_availability_quantity.quantity - quantity
-    print(db_availability_quantity.quantity, quantity)
+    if db_availability.quantity < quantity:
+        raise HTTPException(status_code=400, detail='Not enough available services')
+    db_availability.quantity -= quantity
     db.commit()
     return {'message': 'The service was successfully used'}
+
+
+@app.post('/offers/', response_model=OfferCreateResponse)
+async def create_offer(offer: OfferCreate, db: Session = Depends(get_db)):
+    db_offer = Offers(**offer.dict())
+    db.add(db_offer)
+    db.commit()
+    db.refresh(db_offer)
+    return db_offer
+
+
+@app.get('/offers/')
+async def get_offers(db: Session = Depends(get_db)):
+    offers = db.query(Offers).all()
+    return offers
+
+
+@app.put('/offers/{id}', response_model=OfferCreateResponse)
+async def update_offer(offer_id, offer: Offers, db: Session = Depends(get_db)):
+    db_offer = db.get(Offers, offer_id)
+    if not db_offer:
+        raise HTTPException(status_code=404, detail='Offer not found')
+    db_offer.name = offer.name
+    db_offer.url = offer.url
+    db.commit()
+    db.refresh(db_offer)
+    return db_offer
+
+
+@app.delete('/offers/{id}')
+async def delete_category(offer_id: int, db: Session = Depends(get_db)):
+    db_offer = db.get(Offers, offer_id)
+    if not db_offer:
+        raise HTTPException(status_code=404, detail='Offer not found')
+    db.delete(db_offer)
+    db.commit()
+    return {'message': 'Offer deleted'}
+
+
+@app.post('/contacts/', response_model=ContactCreateResponse)
+async def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
+    db_contact = Contacts(**contact.dict())
+    db.add(db_contact)
+    db.commit()
+    db.refresh(db_contact)
+    return db_contact
+
+
+@app.get('/contacts/')
+async def get_offers(db: Session = Depends(get_db)):
+    contacts = db.query(Contacts).all()
+    return contacts
+
+
+@app.delete('/contacts/{id}')
+async def delete_contact(contact_id: int, db: Session = Depends(get_db)):
+    db_contact = db.get(Contacts, contact_id)
+    if not db_contact:
+        raise HTTPException(status_code=404, detail='Contact not found')
+    db.delete(db_contact)
+    db.commit()
+    return {'message': 'Contact deleted'}
+
 
 
 # from sqlalchemy import MetaData
@@ -310,9 +445,9 @@ async def use_availability_services(client_id: int, service_id: int, quantity: i
 # my_table.drop(engine)
 
 
-session = Session(bind=engine)
-data = session.query(ServicesAvailability.quantity).filter_by(client_id=1, service_id=2).one()
+# session = Session(bind=engine)
+# data = session.query(ServicesAvailability.service_id, ServicesAvailability.quantity).filter_by(client_id=1).all()
+# new_data = session.query(Services.id, Services.quantity).filter_by(subscription_id=2).all()
 
-print(data.quantity)
-
-
+# print(data)
+# print(new_data)
