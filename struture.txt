@@ -1,0 +1,52 @@
+project_root/
+├── app/                      # Основной пакет приложения
+│   ├── api/                 # API-роутеры
+│   │   ├── v1/              # Версия API
+│   │   │   ├── endpoints/   # Конечные точки
+│   │   │   │   ├── items.py
+│   │   │   │   └── users.py
+│   │   │   └── __init__.py
+│   │   └── __init__.py
+│   │
+│   ├── core/                # Ядро приложения (конфиги, утилиты)
+│   │   ├── config.py        # Настройки (env, pydantic)
+│   │   ├── security.py      # Аутентификация
+│   │   └── __init__.py
+│   │
+│   ├── models/              # Модели данных
+│   │   ├── schemas.py       # Pydantic схемы
+│   │   ├── db_models.py     # ORM модели (SQLAlchemy)
+│   │   └── __init__.py
+│   │
+│   ├── services/            # Бизнес-логика
+│   │   ├── item_service.py
+│   │   ├── user_service.py
+│   │   └── __init__.py
+│   │
+│   ├── db/                  # Работа с БД
+│   │   ├── session.py       # Сессии БД
+│   │   ├── repositories/    # Паттерн Repository
+│   │   └── __init__.py
+│   │
+│   ├── dependencies.py      # Общие зависимости
+│   ├── main.py              # Точка входа
+│   └── __init__.py
+│
+├── tests/                   # Тесты
+│   ├── api/
+│   │   └── v1/
+│   ├── conftest.py          # Фикстуры pytest
+│   └── ...
+│
+├── migrations/              # Миграции БД (Alembic)
+│   ├── versions/
+│   └── alembic.ini
+│
+├── static/                  # Статические файлы
+├── templates/               # Шаблоны (если есть фронт)
+│
+├── requirements.txt         # Зависимости
+├── .env                     # Переменные окружения
+├── .gitignore
+├── Dockerfile               # Docker конфигурация
+└── README.md
