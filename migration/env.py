@@ -2,9 +2,8 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from api import SQLALCHEMY_DATABASE_URL
-from models import Base, Clients, Subscriptions, ClientSubscriptions, Services, ServicesAvailability, Contacts, \
-    Categories, Offers
+from app.api.v1 import SQLALCHEMY_DATABASE_URL
+from app.models.db_models import Base
 
 from alembic import context
 
