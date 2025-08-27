@@ -16,7 +16,7 @@ class Clients(Base):
     surname = Column(String(25))
     patronymic = Column(String(25))
     age = Column(Integer)
-    phone = Column(String(15), nullable=False, unique=True, index=True)
+    phone = Column(String(20), nullable=False, unique=True, index=True)
     email = Column(String(50))
     client_subscription = relationship('ClientSubscriptions', back_populates='client',
                                        cascade='all, delete-orphan')
@@ -36,7 +36,7 @@ class Subscriptions(Base):
     price = Column(Integer, nullable=False)
     client_subscription = relationship('ClientSubscriptions', back_populates='subscription',
                                        cascade='all, delete-orphan')
-    included_services = relationship('Services', back_populates='subscriptions')
+    included_services = relationship('SubscriptionServices', back_populates='subscriptions')
 
 
 class ClientSubscriptions(Base):
@@ -51,7 +51,6 @@ class ClientSubscriptions(Base):
     subscription_id = Column(Integer, ForeignKey('subscriptions.id'))
     start_date = Column(Date)
     end_date = Column(Date)
-    payment_status = Column(Enum('paid', 'not_paid'))
     client = relationship('Clients', back_populates='client_subscription')
     subscription = relationship('Subscriptions', back_populates='client_subscription')
 
@@ -68,21 +67,30 @@ class Categories(Base):
 
 class Services(Base):
     __tablename__ = 'services'
-    '''Таблица с перечнем услуг и ценами, в т.ч. которые входят в подписки'''
+    '''Таблица с перечнем услуг и ценами'''
 
     __table_args__ = (
-        CheckConstraint('price > 0', name='check_price'),
         CheckConstraint('price > 0', name='check_price'),
     )
     id = Column(Integer, primary_key=True)
     category_id = Column(Integer, ForeignKey('categories.id'))
     description = Column(String(50), nullable=False)
     price = Column(Integer, nullable=False)
+    category = relationship('Categories', back_populates='services')
+    subscription_services = relationship('SubscriptionServices', back_populates='services')
+    services_availability = relationship('ServicesAvailability', back_populates='services')
+
+
+class SubscriptionServices(Base):
+    __tablename__ = 'subscription_services'
+    '''Таблица с перечнем услуг, которые входят в подписки'''
+
+    id = Column(Integer, primary_key=True)
+    service_id = Column(Integer, ForeignKey('services.id'))
     subscription_id = Column(Integer, ForeignKey('subscriptions.id'))
     quantity = Column(Integer)
-    services_availability = relationship('ServicesAvailability', back_populates='service')
     subscriptions = relationship('Subscriptions', back_populates='included_services')
-    category = relationship('Categories', back_populates='services')
+    services = relationship('Services', back_populates='subscription_services')
 
 
 class ServicesAvailability(Base):
@@ -97,7 +105,7 @@ class ServicesAvailability(Base):
     service_id = Column(Integer, ForeignKey('services.id'))
     quantity = Column(Integer, nullable=False)
     client = relationship('Clients', back_populates='services_availability')
-    service = relationship('Services', back_populates='services_availability')
+    services = relationship('Services', back_populates='services_availability')
 
 
 class Contacts(Base):
@@ -116,4 +124,3 @@ class Offers(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(20), nullable=False)
     url = Column(String(30), nullable=False)
-
