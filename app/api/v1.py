@@ -56,6 +56,7 @@ async def update_client(client_id: int, client: ClientCreate, db: Session = Depe
     db_client.age = client.age
     db_client.phone = client.phone
     db_client.email = client.email
+    db_client.password = client.password
     db.commit()
     db.refresh(db_client)
     return db_client

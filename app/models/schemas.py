@@ -10,6 +10,7 @@ class ClientCreate(BaseModel):
     age: int
     phone: PhoneNumber
     email: EmailStr
+    password: str
 
 
 class SubscriptionCreate(BaseModel):
